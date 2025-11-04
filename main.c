@@ -18,6 +18,11 @@ typedef struct {
     size_t capacity;
 } MyRays;
 
+typedef struct {
+    Vector2 start;
+    Vector2 end;
+} LineSegment;
+
 void draw_ray(MyRay ray) {
     DrawLineEx(ray.origin, ray.endPoint, 2, YELLOW);
 }
@@ -37,6 +42,44 @@ void draw_stats(float cos, float sin, float tan) {
 
     const char *tanText = TextFormat("tan = %f", tan);
     DrawText(tanText, 20, 60, 20, RED);
+}
+
+bool ray_line_segment_collision(MyRay ray, LineSegment line, Vector2 *resPoint) {
+    // solves equation
+    // R(t) = L(s)
+    //
+    // where:
+    // R(t) = (x0 + t * dx, y0 + t * dy)
+    // x0 = x coordinate of the ray's origin
+    // dx = ray's x direction
+    // y0 = y coordinate of the ray's origin
+    // dy = ray's y direction
+    //
+    // L(s) = A + s(B - A)
+    // A and B = start and end point of a line segment
+    //
+    // here R(t) represents a point in a ray, and L(s) represents a point in a line segment
+    // so, we want to find a t and s where R(t) = L(s), a collision is found when:
+    // 0 <= s <= 1: since if s is out of this range, L(s) is outside of the line segment
+    // t >= 0: if t is negative, the point was found opposite to the ray's direction
+
+    float dx = line.end.x - line.start.x;
+    float dy = line.end.y - line.start.y;
+
+    float s = ray.dir.x * (line.start.y - ray.origin.y) - ray.dir.y * (line.start.x - ray.origin.x);
+    s /= dx * ray.dir.y - dy * ray.dir.x;
+
+    float t = (line.start.x - ray.origin.x) + s * dx;
+    t /= ray.dir.x;
+
+    bool collision = s >= 0 && s <= 1 && t > 0;
+
+    if(collision) {
+        resPoint->x = ray.origin.x + ray.dir.x * t;
+        resPoint->y = ray.origin.y + ray.dir.y * t;
+    }
+
+    return collision;
 }
 
 int main(void) {
@@ -91,23 +134,16 @@ int main(void) {
         int srcRadius = 5;
         DrawCircle(srcPos.x, srcPos.y, srcRadius, WHITE);
 
-        Vector2 lineStart = {800, 200};
-        Vector2 lineEnd = {850, 250};
-        DrawLineEx(lineStart, lineEnd, 2, WHITE);
+        LineSegment line = {
+            .start = {800, 200},
+            .end = {850, 250},
+        };
 
-        float dx = lineEnd.x - lineStart.x;
-        float dy = lineEnd.y - lineStart.y;
-        float originDX = (lineStart.x - ray.origin.x);
+        DrawLineEx(line.start, line.end, 2, WHITE);
 
-        float s = ray.dir.y * originDX - ray.dir.x * (lineStart.y - ray.origin.y);
-        s /= ray.dir.x * dy - ray.dir.y * dx;
-
-        float t = originDX + s * dx;
-        t /= ray.dir.x;
-
-        if(s >= 0 && s <= 1 && t > 0) {
-            ray.endPoint.x = ray.origin.x + ray.dir.x * t;
-            ray.endPoint.y = ray.origin.y + ray.dir.y * t;
+        Vector2 collisionPoint = {0};
+        if(ray_line_segment_collision(ray, line, &collisionPoint)) {
+            ray.endPoint = collisionPoint;
         } else {
             float distance = 1000;
             ray.endPoint.x = ray.origin.x + ray.dir.x * distance;
