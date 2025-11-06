@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <assert.h>
+#include <float.h>
 
 #include "CCFuncs.h"
 #include "raylib.h"
@@ -82,6 +83,58 @@ bool ray_line_segment_collision(MyRay ray, LineSegment line, Vector2 *resPoint) 
     return collision;
 }
 
+typedef struct {
+    bool hit;
+    Vector2 point;
+} MyRayCollision;
+
+MyRayCollision get_ray_collision_rec(MyRay ray, Rectangle rec) {
+    float t = 0;
+    float s = FLT_MAX;
+
+    if(ray.dir.x != 0) {
+        // left line
+        t = (rec.x - ray.origin.x) / ray.dir.x;
+        float y = ray.origin.y + t * ray.dir.y;
+
+        if(t > 0 && y >= rec.y && y <= rec.y + rec.height && t < s) {
+            s = t;
+        }
+
+        t += rec.width / ray.dir.x;
+        y = ray.origin.y + t * ray.dir.y;
+
+        if(t > 0 && y >= rec.y && y <= rec.y + rec.height && t < s) {
+            s = t;
+        }
+    }
+
+    if(ray.dir.y != 0) {
+        t = (rec.y - ray.origin.y) / ray.dir.y;
+        float x = ray.origin.x + t * ray.dir.x;
+
+        if(t > 0 && x >= rec.x && x <= rec.x + rec.width && t < s) {
+            s = t;
+        }
+
+        t += rec.height / ray.dir.y;
+        x = ray.origin.x + t * ray.dir.x;
+        if(t > 0 && x >= rec.x && x <= rec.x + rec.width && t < s) {
+            s = t;
+        }
+    }
+
+    Vector2 point = {
+        .x = ray.origin.x + s * ray.dir.x,
+        .y = ray.origin.y + s * ray.dir.y,
+    };
+
+    return (MyRayCollision){
+        .hit = s != FLT_MAX,
+        .point = point,
+    };
+}
+
 int main(void) {
     InitWindow(1280, 720, "C Raycast");
     SetTargetFPS(60);
@@ -94,6 +147,8 @@ int main(void) {
     MyRay ray = {
         .origin = srcPos,
     };
+
+    Rectangle rec = {100, 100, 50, 50};
 
     while(!WindowShouldClose()) {
         BeginDrawing();
@@ -148,6 +203,21 @@ int main(void) {
             float distance = 1000;
             ray.endPoint.x = ray.origin.x + ray.dir.x * distance;
             ray.endPoint.y = ray.origin.y + ray.dir.y * distance;
+        }
+
+        float speed = 10;
+        if(IsKeyDown(KEY_RIGHT)) rec.x += speed;
+        else if(IsKeyDown(KEY_LEFT)) rec.x -= speed;
+
+        if(IsKeyDown(KEY_DOWN)) rec.y += speed;
+        else if(IsKeyDown(KEY_UP)) rec.y -= speed;
+
+        DrawRectangleLinesEx(rec, 2, RED);
+
+        MyRayCollision coll = get_ray_collision_rec(ray, rec);
+
+        if(coll.hit) {
+            ray.endPoint = coll.point;
         }
 
         draw_ray(ray);
